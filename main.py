@@ -6,13 +6,24 @@ from datetime import datetime, timedelta
 import os
 import glob
 import random
-from supabase import create_client
+import requests as req
+import uuid
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznrejruz.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
-def get_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+def sb_headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "count=exact"
+    }
+
+def sb_count(status):
+    r = req.get(f"{SUPABASE_URL}/rest/v1/events?status=eq.{status}&select=id", headers=sb_headers())
+    cr = r.headers.get("Content-Range", "0/0")
+    return int(cr.split("/")[-1])
 
 app = FastAPI(title="Data Platform Serving API")
 
@@ -46,9 +57,8 @@ def health_check():
 @app.get("/debug")
 def debug():
     try:
-        db = get_supabase()
-        raw_count = db.table("events").select("id", count="exact").eq("status", "raw").execute().count
-        clean_count = db.table("events").select("id", count="exact").eq("status", "clean").execute().count
+        raw_count = sb_count("raw")
+        clean_count = sb_count("clean")
         return {"supabase": "connected", "raw_count": raw_count, "clean_count": clean_count, "key_set": bool(SUPABASE_KEY)}
     except Exception as e:
         return {"supabase": "error", "detail": str(e), "key_set": bool(SUPABASE_KEY)}
@@ -56,17 +66,16 @@ def debug():
 @app.get("/ingest")
 def ingest_event():
     try:
-        db = get_supabase()
         event = {
-            "event_id": __import__('uuid').uuid4().hex,
-            "user_id": f"user_{__import__('uuid').uuid4().hex[:4]}",
+            "event_id": uuid.uuid4().hex,
+            "user_id": f"user_{uuid.uuid4().hex[:4]}",
             "event_type": "click",
             "timestamp": datetime.now().isoformat(),
             "url": "/products/electronics",
             "status": "raw"
         }
-        db.table("events").insert(event).execute()
-        return {"status": "ok", "event_id": event["event_id"]}
+        r = req.post(f"{SUPABASE_URL}/rest/v1/events", json=event, headers=sb_headers())
+        return {"status": "ok", "event_id": event["event_id"], "http": r.status_code}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
@@ -76,9 +85,8 @@ def get_metrics():
     labels = [(now - timedelta(minutes=i)).strftime("%H:%M") for i in range(10, 0, -1)]
 
     try:
-        db = get_supabase()
-        raw_count = db.table("events").select("id", count="exact").eq("status", "raw").execute().count or 0
-        clean_count = db.table("events").select("id", count="exact").eq("status", "clean").execute().count or 0
+        raw_count = sb_count("raw")
+        clean_count = sb_count("clean")
     except Exception:
         raw_count, clean_count = 0, 0
 
