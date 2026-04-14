@@ -1,48 +1,34 @@
-import pandas as pd
-import glob
-import json
 import os
-from datetime import datetime
+from supabase import create_client
 
-RAW_PATH = "data_lake/raw/user_clicks/*.json"
-CLEAN_PATH = "data_lake/clean/user_clicks"
+# Supabase configuration
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznrejruz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 def clean_batch():
-    print("🧹 Starting batch cleaning...")
+    print("🧹 Starting batch cleaning from Supabase...")
     
-    # 1. Read all JSON files from raw path
-    files = glob.glob(RAW_PATH)
-    if not files:
-        print("ℹ️ No new files to process.")
-        return
-
-    data = []
-    for f in files:
-        with open(f, 'r') as file:
-            data.append(json.load(file))
-    
-    df = pd.DataFrame(data)
-    
-    # 2. Basic Cleaning
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df = df.drop_duplicates(subset=['event_id'])
-    
-    # 3. Write to Clean Layer
-    os.makedirs(CLEAN_PATH, exist_ok=True)
-    output_file = f"{CLEAN_PATH}/cleaned_events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
-    
-    # Using CSV if parquet engine is missing, but pandas 1.5+ usually has it
     try:
-        df.to_parquet(output_file, index=False)
-        print(f"✅ Saved cleaned data to: {output_file}")
-    except ImportError:
-        output_file = output_file.replace(".parquet", ".csv")
-        df.to_csv(output_file, index=False)
-        print(f"✅ Saved cleaned data to: {output_file} (CSV fallback)")
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        
+        # 1. Fetch raw events
+        res = supabase.table("events").select("*").eq("status", "raw").execute()
+        events = res.data
+        
+        if not events:
+            print("ℹ️ No new raw events to process.")
+            return
 
-    # 4. Optional: Archive or delete processed raw files
-    # for f in files:
-    #     os.remove(f)
+        print(f"🔄 Processing {len(events)} events...")
+        
+        # 2. Update status to 'clean' for each event
+        for event in events:
+            supabase.table("events").update({"status": "clean"}).eq("event_id", event["event_id"]).execute()
+            
+        print(f"✅ Successfully cleaned {len(events)} events in Supabase!")
+        
+    except Exception as e:
+        print(f"❌ Error during cleaning: {e}")
 
 if __name__ == "__main__":
     clean_batch()
