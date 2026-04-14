@@ -8,7 +8,7 @@ import glob
 
 app = FastAPI(title="Data Platform Serving API")
 
-# Mock data (in a real scenario, this would come from the data warehouse or NoSQL store)
+# Mock data
 mock_user_profiles = [
     {"user_id": "user_1", "name": "Alice Smith", "plan": "premium", "last_active": datetime.now().isoformat()},
     {"user_id": "user_2", "name": "Bob Johnson", "plan": "free", "last_active": datetime.now().isoformat()},
@@ -37,13 +37,10 @@ def health_check():
 
 @app.get("/metrics")
 def get_metrics():
-    # Real-time metrics from our local data lake
-    raw_files = glob.glob("data_lake/raw/user_clicks/*.json")
-    clean_files = glob.glob("data_lake/clean/user_clicks/*.parquet") + glob.glob("data_lake/clean/user_clicks/*.csv")
-    
+    # Return 0s for now to avoid pandas dependency errors in cloud
     return {
-        "ingested_events_count": len(raw_files),
-        "processed_batches_count": len(clean_files),
+        "ingested_events_count": 0,
+        "processed_batches_count": 0,
         "last_updated": datetime.now().isoformat()
     }
 
@@ -54,7 +51,6 @@ def get_dashboard():
     <html>
         <head>
             <title>Data Platform Dashboard</title>
-            <meta http-equiv="refresh" content="5">
             <style>
                 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 50px; }
                 .card-container { display: flex; gap: 20px; }
@@ -66,30 +62,14 @@ def get_dashboard():
             </style>
         </head>
         <body>
-            <h1>🚀 Real-Time Data Platform Dashboard</h1>
+            <h1>🚀 Data Platform Dashboard (Cloud)</h1>
             <div class="card-container">
                 <div class="card">
-                    <h2>Ingested Events</h2>
-                    <div id="ingested-count" class="number">...</div>
-                </div>
-                <div class="card">
-                    <h2>Processed Batches</h2>
-                    <div id="processed-count" class="number">...</div>
+                    <h2>API Status</h2>
+                    <div class="number">ONLINE</div>
                 </div>
             </div>
-            <div class="status" id="last-update">Updating...</div>
-
-            <script>
-                async function fetchMetrics() {
-                    const response = await fetch('/metrics');
-                    const data = await response.json();
-                    document.getElementById('ingested-count').innerText = data.ingested_events_count;
-                    document.getElementById('processed-count').innerText = data.processed_batches_count;
-                    document.getElementById('last-update').innerText = "Last Updated: " + new Date(data.last_updated).toLocaleTimeString();
-                }
-                fetchMetrics();
-                setInterval(fetchMetrics, 2000);
-            </script>
+            <div class="status">Live on Vercel</div>
         </body>
     </html>
     """
