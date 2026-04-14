@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -23,7 +23,7 @@ class UserProfile(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Data Platform Serving API"}
+    return RedirectResponse(url="/dashboard")
 
 @app.get("/users/{user_id}", response_model=UserProfile)
 def get_user_profile(user_id: str):
