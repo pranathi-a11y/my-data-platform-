@@ -6,6 +6,13 @@ from datetime import datetime, timedelta
 import os
 import glob
 import random
+from supabase import create_client
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznrejruz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+def get_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="Data Platform Serving API")
 
@@ -38,20 +45,22 @@ def health_check():
 
 @app.get("/metrics")
 def get_metrics():
-    # Local metrics (works when producer is running on your Mac)
-    raw_files = glob.glob("data_lake/raw/user_clicks/*.json")
-    clean_files = glob.glob("data_lake/clean/user_clicks/*.parquet") + glob.glob("data_lake/clean/user_clicks/*.csv")
-    
-    # Generate some mock trend data for the graph
     now = datetime.now()
     labels = [(now - timedelta(minutes=i)).strftime("%H:%M") for i in range(10, 0, -1)]
-    # Use real counts if available, otherwise mock a trend
-    base_count = len(raw_files) if len(raw_files) > 0 else 50
+
+    try:
+        db = get_supabase()
+        raw_count = db.table("events").select("id", count="exact").eq("status", "raw").execute().count or 0
+        clean_count = db.table("events").select("id", count="exact").eq("status", "clean").execute().count or 0
+    except Exception:
+        raw_count, clean_count = 0, 0
+
+    base_count = raw_count if raw_count > 0 else 50
     data_points = [base_count + random.randint(-5, 15) for _ in range(10)]
-    
+
     return {
-        "ingested_events_count": len(raw_files),
-        "processed_batches_count": len(clean_files),
+        "ingested_events_count": raw_count,
+        "processed_batches_count": clean_count,
         "labels": labels,
         "data_points": data_points,
         "last_updated": now.isoformat()

@@ -3,8 +3,10 @@ import time
 import uuid
 import os
 from datetime import datetime
+from supabase import create_client
 
-RAW_PATH = "data_lake/raw/user_clicks"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznrejruz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 def generate_event():
     return {
@@ -12,21 +14,18 @@ def generate_event():
         "user_id": f"user_{uuid.uuid4().hex[:4]}",
         "event_type": "click",
         "timestamp": datetime.now().isoformat(),
-        "url": "/products/electronics"
+        "url": "/products/electronics",
+        "status": "raw"
     }
 
 def start_ingestion():
-    print(f"📡 Simulating ingestion to {RAW_PATH}...")
-    # Ensure directory exists
-    os.makedirs(RAW_PATH, exist_ok=True)
-    
+    db = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("📡 Simulating ingestion to Supabase...")
+
     try:
         while True:
             event = generate_event()
-            # Create a unique filename for each event
-            filename = f"{RAW_PATH}/event_{int(time.time()*1000)}.json"
-            with open(filename, 'w') as f:
-                json.dump(event, f)
+            db.table("events").insert(event).execute()
             print(f"✅ Ingested event: {event['event_id']}")
             time.sleep(2)
     except KeyboardInterrupt:
