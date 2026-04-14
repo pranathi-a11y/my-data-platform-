@@ -53,6 +53,23 @@ def debug():
     except Exception as e:
         return {"supabase": "error", "detail": str(e), "key_set": bool(SUPABASE_KEY)}
 
+@app.get("/ingest")
+def ingest_event():
+    try:
+        db = get_supabase()
+        event = {
+            "event_id": __import__('uuid').uuid4().hex,
+            "user_id": f"user_{__import__('uuid').uuid4().hex[:4]}",
+            "event_type": "click",
+            "timestamp": datetime.now().isoformat(),
+            "url": "/products/electronics",
+            "status": "raw"
+        }
+        db.table("events").insert(event).execute()
+        return {"status": "ok", "event_id": event["event_id"]}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.get("/metrics")
 def get_metrics():
     now = datetime.now()
@@ -172,8 +189,14 @@ def get_dashboard():
                     }
                 }
                 
+                async function ingest() {
+                    try { await fetch('/ingest'); } catch(e) {}
+                }
+
                 setInterval(updateDashboard, 2000);
+                setInterval(ingest, 2000);
                 updateDashboard();
+                ingest();
             </script>
         </body>
     </html>
