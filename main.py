@@ -76,14 +76,15 @@ def ingest_event():
         }
         r = req.post(f"{SUPABASE_URL}/rest/v1/events", json=event, headers=sb_headers())
 
-        # Simulate batch cleaning: mark one old raw event as clean
-        clean_headers = sb_headers()
-        clean_headers["Prefer"] = "count=exact"
-        req.patch(
-            f"{SUPABASE_URL}/rest/v1/events?status=eq.raw&order=id.asc&limit=1",
-            json={"status": "clean"},
-            headers=clean_headers
-        )
+        # Simulate batch cleaning: only ~1 in 3 events get cleaned (realistic pipeline lag)
+        if random.random() < 0.35:
+            clean_headers = sb_headers()
+            clean_headers["Prefer"] = "count=exact"
+            req.patch(
+                f"{SUPABASE_URL}/rest/v1/events?status=eq.raw&order=id.asc&limit=1",
+                json={"status": "clean"},
+                headers=clean_headers
+            )
 
         return {"status": "ok", "event_id": event["event_id"], "http": r.status_code}
     except Exception as e:
@@ -101,8 +102,7 @@ def get_metrics():
         raw_count, clean_count = 0, 0
 
     total = raw_count + clean_count
-    base_count = total if total > 0 else 50
-    data_points = [base_count + random.randint(-5, 15) for _ in range(10)]
+    data_points = [random.randint(25, 65) for _ in range(10)]
 
     return {
         "ingested_events_count": total,
