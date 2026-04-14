@@ -43,6 +43,16 @@ def get_user_profile(user_id: str):
 def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.get("/debug")
+def debug():
+    try:
+        db = get_supabase()
+        raw_count = db.table("events").select("id", count="exact").eq("status", "raw").execute().count
+        clean_count = db.table("events").select("id", count="exact").eq("status", "clean").execute().count
+        return {"supabase": "connected", "raw_count": raw_count, "clean_count": clean_count, "key_set": bool(SUPABASE_KEY)}
+    except Exception as e:
+        return {"supabase": "error", "detail": str(e), "key_set": bool(SUPABASE_KEY)}
+
 @app.get("/metrics")
 def get_metrics():
     now = datetime.now()
