@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # --- Layer 1: Ingestion (Kafka) ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # --- Layer 2: Storage (MinIO as Data Lake) ---
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    command: server /data --console-address ":9001"
+
+  # --- Layer 2: Storage (Postgres as Source DB) ---
+  postgres-source:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: source_user
+      POSTGRES_PASSWORD: source_password
+      POSTGRES_DB: source_db
+    ports:
+      - "5432:5432"
+
+  # --- Cross-cutting: Orchestration (Airflow) ---
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow_password
+      POSTGRES_DB: airflow
+    ports:
+      - "5433:5432"
+
+  airflow-webserver:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - airflow-db
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db/airflow
+      - AIRFLOW__CORE__FERNET_KEY=FB177S7m6Z6S6S6S6S6S6S6S6S6S6S6S6S6S6S6S6S6=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    ports:
+      - "8080:8080"
+    command: webserver
+    volumes:
+      - ./cross_cutting/airflow/dags:/opt/airflow/dags
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - airflow-db
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db/airflow
+      - AIRFLOW__CORE__FERNET_KEY=FB177S7m6Z6S6S6S6S6S6S6S6S6S6S6S6S6S6S6S6S6=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: scheduler
+    volumes:
+      - ./cross_cutting/airflow/dags:/opt/airflow/dags
