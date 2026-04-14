@@ -100,11 +100,12 @@ def get_metrics():
     except Exception:
         raw_count, clean_count = 0, 0
 
-    base_count = raw_count if raw_count > 0 else 50
+    total = raw_count + clean_count
+    base_count = total if total > 0 else 50
     data_points = [base_count + random.randint(-5, 15) for _ in range(10)]
 
     return {
-        "ingested_events_count": raw_count,
+        "ingested_events_count": total,
         "processed_batches_count": clean_count,
         "labels": labels,
         "data_points": data_points,
