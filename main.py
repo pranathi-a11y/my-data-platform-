@@ -9,7 +9,7 @@ import random
 import requests as req
 import uuid
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznrejruz.supabase.co")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gwctkzynfvgqoznejruz.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 def sb_headers():
