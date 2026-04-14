@@ -63,6 +63,15 @@ def debug():
     except Exception as e:
         return {"supabase": "error", "detail": str(e), "key_set": bool(SUPABASE_KEY)}
 
+@app.get("/reset")
+def reset_events():
+    try:
+        h = sb_headers()
+        req.delete(f"{SUPABASE_URL}/rest/v1/events?id=gt.0", headers=h)
+        return {"status": "ok", "message": "all events cleared"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.get("/ingest")
 def ingest_event():
     try:
@@ -76,8 +85,8 @@ def ingest_event():
         }
         r = req.post(f"{SUPABASE_URL}/rest/v1/events", json=event, headers=sb_headers())
 
-        # Simulate batch cleaning: only ~1 in 3 events get cleaned (realistic pipeline lag)
-        if random.random() < 0.35:
+        # Simulate batch cleaning: only ~15% of events get cleaned (realistic pipeline lag)
+        if random.random() < 0.15:
             clean_headers = sb_headers()
             clean_headers["Prefer"] = "count=exact"
             req.patch(
