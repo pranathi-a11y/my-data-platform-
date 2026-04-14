@@ -1,2 +1,1 @@
-web: gunicorn serving.api.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
-worker: python ingestion/streaming/kafka_producer.py
+web: python ingestion/streaming/kafka_producer.py & gunicorn serving.api.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
