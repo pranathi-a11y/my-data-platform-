@@ -75,6 +75,16 @@ def ingest_event():
             "status": "raw"
         }
         r = req.post(f"{SUPABASE_URL}/rest/v1/events", json=event, headers=sb_headers())
+
+        # Simulate batch cleaning: mark one old raw event as clean
+        clean_headers = sb_headers()
+        clean_headers["Prefer"] = "count=exact"
+        req.patch(
+            f"{SUPABASE_URL}/rest/v1/events?status=eq.raw&order=id.asc&limit=1",
+            json={"status": "clean"},
+            headers=clean_headers
+        )
+
         return {"status": "ok", "event_id": event["event_id"], "http": r.status_code}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
